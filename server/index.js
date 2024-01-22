@@ -6,6 +6,35 @@ const app = express();
 
 app.use(bodyParser.json());
 
+
+// middleware for admin authentication
+const adminAuth = (req, res, next)=>{
+    const { username, password} = req.headers;
+    fs.readFile("../admins.json", "UTF-8", (err, data)=>{
+        if(data)
+        {
+            var isAdminFound = false;
+            var admins = JSON.parse(data);
+            admins.map(admin =>{
+                if(admin.username === username && admin.password === password)
+                {
+                    isAdminFound = true;
+                }
+            });
+            
+            if(isAdminFound)
+            {
+                next();
+            }
+            else{
+                res.status(404).json({msg : "Admin authentication failed"});
+            }
+
+        }
+    })
+}
+
+
 // for admin to signup
 app.post("/admin/signup", (req,res)=>{
     var username = req.body.username;
@@ -32,7 +61,6 @@ app.post("/admin/signup", (req,res)=>{
             });
             
             // if count of old admins and new admins are not same then the admin is present already
-
             updatedAdmins.push(newAdmin);
             fs.writeFile("../admins.json", JSON.stringify(updatedAdmins), (err)=>{
                 if(err)
@@ -47,12 +75,38 @@ app.post("/admin/signup", (req,res)=>{
 
 // for admin to signin
 app.post("/admin/login", (req, res)=>{
-    
+    var username = req.body.username;
+    var password  = req.body.password;
+    fs.readFile("../admins.json", "UTF-8", (_err, data)=>{
+        if(data)
+        {
+            // data came out is stringyfied so first convert it into JSON object
+            var admins = JSON.parse(data);
+            var isAdminFound = false;
+            admins.map(admin =>{
+                if(admin.username === username && admin.password === password)
+                {
+                    isAdminFound = true;
+                }
+            });
+            if(isAdminFound)
+            {
+                console.log("Admin found")
+            }
+            else{
+                console.log("Admin not found")
+            }
+        }
+        else{
+            console.log("Error reading file");
+        }
+    });
+    res.status(200).send();
 })
 
 // for posting courses by admin
 var count = 1;
-app.post("/admin/course", (req, res)=>{
+app.post("/admin/course", adminAuth, (req, res)=>{
     let title = req.body.title;
     let description = req.body.description;
     let price = req.body.price;
@@ -89,7 +143,7 @@ app.post("/admin/course", (req, res)=>{
 });
 
 // to get all courses added by the admin
-app.get("/admin/courses", (_req, res)=>{
+app.get("/admin/courses", adminAuth, (_req, res)=>{
 
     
     fs.readFile("../courses.json", "UTF-8", (_err, data)=>{
@@ -106,7 +160,7 @@ app.get("/admin/courses", (_req, res)=>{
 });
 
 // for deleting course by admin by giving course id
-app.delete("/admin/course/:id", (req, res)=>{
+app.delete("/admin/course/:id", adminAuth, (req, res)=>{
     var id = parseInt(req.params.id);
     fs.readFile("../courses.json", "UTF-8", (_err, data)=>{
         if(data)
